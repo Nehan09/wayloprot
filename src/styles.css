@@ -1,0 +1,131 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Waylo smart cart design system — "Kiosk Frost Panel".
+ * Device-grade UI: frosted white panels on a cool mist background,
+ * ink chrome bars, one electric route blue, tabular-numeral pricing.
+ * All colours are oklch tokens; never hardcode colours in components.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+
+  --font-sans: "Archivo", system-ui, sans-serif;
+  --font-mono: "Space Mono", ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Waylo device palette */
+  --color-ink: var(--ink);
+  --color-mist: var(--mist);
+  --color-steel: var(--steel);
+  --color-fog: var(--fog);
+  --color-route: var(--route);
+  --color-carrot: var(--carrot);
+  --color-olive: var(--olive);
+}
+
+:root {
+  --radius: 0.875rem;
+
+  --ink: oklch(0.194 0.012 232);
+  --mist: oklch(0.921 0.006 232);
+  --steel: oklch(0.779 0.011 235);
+  --fog: oklch(0.955 0.004 232);
+  --route: oklch(0.688 0.153 245);
+  --carrot: oklch(0.705 0.176 40);
+  --olive: oklch(0.586 0.101 150);
+
+  --background: var(--mist);
+  --foreground: var(--ink);
+  --card: oklch(1 0 0);
+  --card-foreground: var(--ink);
+  --popover: oklch(1 0 0);
+  --popover-foreground: var(--ink);
+  --primary: var(--route);
+  --primary-foreground: var(--ink);
+  --secondary: var(--fog);
+  --secondary-foreground: var(--ink);
+  --muted: var(--fog);
+  --muted-foreground: oklch(0.58 0.012 235);
+  --accent: var(--carrot);
+  --accent-foreground: oklch(1 0 0);
+  --destructive: oklch(0.58 0.2 25);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.194 0.012 232 / 0.1);
+  --input: oklch(0.194 0.012 232 / 0.12);
+  --ring: var(--route);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Touchscreen: no text selection drag, no tap highlight */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@utility panel {
+  background-color: color-mix(in oklab, white 55%, transparent);
+  backdrop-filter: blur(20px);
+  box-shadow: inset 0 0 0 1px oklch(0.194 0.012 232 / 0.06);
+}
+
+@utility eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+
+@keyframes waylo-draw {
+  from {
+    stroke-dashoffset: 2000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.route-draw {
+  stroke-dasharray: 2000;
+  animation: waylo-draw 1.4s ease forwards;
+}

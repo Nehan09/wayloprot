@@ -14,6 +14,7 @@ import { Route as CartRouteImport } from './routes/cart'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as ListRouteImport } from './routes/list'
 import { Route as MapRouteImport } from './routes/map'
+import { Route as RetailerRouteImport } from './routes/retailer'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as ProductIdRouteImport } from './routes/product.$id'
@@ -43,6 +44,11 @@ const MapRoute = MapRouteImport.update({
   path: '/map',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RetailerRoute = RetailerRouteImport.update({
+  id: '/retailer',
+  path: '/retailer',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ScanRoute = ScanRouteImport.update({
   id: '/scan',
   path: '/scan',
@@ -65,6 +71,7 @@ export interface FileRoutesByFullPath {
   '/checkout': typeof CheckoutRoute
   '/list': typeof ListRoute
   '/map': typeof MapRoute
+  '/retailer': typeof RetailerRoute
   '/scan': typeof ScanRoute
   '/search': typeof SearchRoute
   '/product/$id': typeof ProductIdRoute
@@ -75,6 +82,7 @@ export interface FileRoutesByTo {
   '/checkout': typeof CheckoutRoute
   '/list': typeof ListRoute
   '/map': typeof MapRoute
+  '/retailer': typeof RetailerRoute
   '/scan': typeof ScanRoute
   '/search': typeof SearchRoute
   '/product/$id': typeof ProductIdRoute
@@ -86,6 +94,7 @@ export interface FileRoutesById {
   '/checkout': typeof CheckoutRoute
   '/list': typeof ListRoute
   '/map': typeof MapRoute
+  '/retailer': typeof RetailerRoute
   '/scan': typeof ScanRoute
   '/search': typeof SearchRoute
   '/product/$id': typeof ProductIdRoute
@@ -98,6 +107,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/list'
     | '/map'
+    | '/retailer'
     | '/scan'
     | '/search'
     | '/product/$id'
@@ -108,6 +118,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/list'
     | '/map'
+    | '/retailer'
     | '/scan'
     | '/search'
     | '/product/$id'
@@ -118,6 +129,7 @@ export interface FileRouteTypes {
     | '/checkout'
     | '/list'
     | '/map'
+    | '/retailer'
     | '/scan'
     | '/search'
     | '/product/$id'
@@ -129,6 +141,7 @@ export interface RootRouteChildren {
   CheckoutRoute: typeof CheckoutRoute
   ListRoute: typeof ListRoute
   MapRoute: typeof MapRoute
+  RetailerRoute: typeof RetailerRoute
   ScanRoute: typeof ScanRoute
   SearchRoute: typeof SearchRoute
   ProductIdRoute: typeof ProductIdRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/retailer': {
+      id: '/retailer'
+      path: '/retailer'
+      fullPath: '/retailer'
+      preLoaderRoute: typeof RetailerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/scan': {
       id: '/scan'
       path: '/scan'
@@ -201,6 +221,7 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutRoute: CheckoutRoute,
   ListRoute: ListRoute,
   MapRoute: MapRoute,
+  RetailerRoute: RetailerRoute,
   ScanRoute: ScanRoute,
   SearchRoute: SearchRoute,
   ProductIdRoute: ProductIdRoute,

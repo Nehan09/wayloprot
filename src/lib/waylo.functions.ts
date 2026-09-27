@@ -138,3 +138,29 @@ export const optimizeRoute = createServerFn({ method: "POST" })
     const { optimizeListRoute } = await import("./waylo.server");
     return optimizeListRoute(data.sessionId, data.from);
   });
+export const fetchRetailerDashboard = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { getRetailerDashboard } = await import("./waylo.server");
+    return getRetailerDashboard();
+  });
+export const fetchRetailerInventory = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { getRetailerInventory } = await import("./waylo.server");
+    return getRetailerInventory();
+  });  
+  export const fetchSavingsRecommendations = createServerFn({ method: "GET" })
+  .inputValidator((data) => sessionSchema.parse(data))
+  .handler(async ({ data }) => {
+    const { getSavingsRecommendations } = await import("./waylo.server");
+
+    return getSavingsRecommendations(data.sessionId);
+  });
+  export const fetchInventoryRecommendations = createServerFn({
+  method: "GET",
+}).handler(async () => {
+  const { getInventoryRecommendations } = await import(
+    "./waylo.server"
+  );
+
+  return getInventoryRecommendations();
+});

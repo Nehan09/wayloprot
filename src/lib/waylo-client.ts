@@ -14,6 +14,9 @@ import {
   fetchList,
   fetchProduct,
   fetchStore,
+  fetchRetailerDashboard,
+  fetchRetailerInventory,
+  fetchSavingsRecommendations,
   optimizeRoute,
   removeFromCart,
   removeFromList,
@@ -22,6 +25,7 @@ import {
   setListStatus,
   updateCartItem,
   updateCartPosition,
+    fetchInventoryRecommendations,
 } from "./waylo.functions";
 
 export function useSession() {
@@ -105,11 +109,25 @@ export const useScan = () =>
     ["cart"],
   );
 
-export const useCheckout = () =>
-  useSessionMutation<void, Awaited<ReturnType<typeof checkout>>>(
-    (sessionId) => checkout({ data: { sessionId } }),
-    ["cart"],
-  );
+export const useCheckout = () => {
+  const sessionId = useSession();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () =>
+      checkout({
+        data: {
+          sessionId: sessionId ?? getSessionId(),
+        },
+      }),
+
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: ["cart"],
+      });
+    },
+  });
+};
 
 export const useAddToList = () =>
   useSessionMutation<{ productId: number }, unknown>(
@@ -156,3 +174,35 @@ export const useOptimizedRoute = () => {
       optimizeRoute({ data: { sessionId: sessionId ?? getSessionId(), from: vars.from } }),
   });
 };
+export function useRetailerDashboard() {
+  return useQuery({
+    queryKey: ["retailer-dashboard"],
+    queryFn: () => fetchRetailerDashboard(),
+  });
+}
+export function useRetailerInventory() {
+  return useQuery({
+    queryKey: ["retailer-inventory"],
+    queryFn: () => fetchRetailerInventory(),
+  });
+}
+export function useSavingsRecommendations() {
+  const sessionId = useSession();
+
+  return useQuery({
+    queryKey: ["savings-recommendations", sessionId],
+    queryFn: () =>
+      fetchSavingsRecommendations({
+        data: {
+          sessionId: sessionId!,
+        },
+      }),
+    enabled: !!sessionId,
+  });
+}
+export function useInventoryRecommendations() {
+  return useQuery({
+    queryKey: ["inventory-recommendations"],
+    queryFn: () => fetchInventoryRecommendations(),
+  });
+}

@@ -1,8 +1,10 @@
 // UI-side data access. Components call these hooks; the hooks call the backend.
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 
 import { getSessionId } from "./session";
+
 import {
   addToCart,
   addToList,
@@ -17,6 +19,8 @@ import {
   fetchRetailerDashboard,
   fetchRetailerInventory,
   fetchSavingsRecommendations,
+  fetchInventoryRecommendations,
+  fetchRetailerSalesIntelligence,
   optimizeRoute,
   removeFromCart,
   removeFromList,
@@ -25,17 +29,35 @@ import {
   setListStatus,
   updateCartItem,
   updateCartPosition,
-    fetchInventoryRecommendations,
+  restockProduct,
 } from "./waylo.functions";
+
+
+// ─────────────────────────────────────────────
+// SESSION
+// ─────────────────────────────────────────────
 
 export function useSession() {
   const [sessionId, setSessionId] = useState<string | null>(null);
-  useEffect(() => setSessionId(getSessionId()), []);
+
+  useEffect(() => {
+    setSessionId(getSessionId());
+  }, []);
+
   return sessionId;
 }
 
+
+// ─────────────────────────────────────────────
+// STORE
+// ─────────────────────────────────────────────
+
 export function useStore() {
-  return useQuery({ queryKey: ["store"], queryFn: () => fetchStore(), staleTime: Infinity });
+  return useQuery({
+    queryKey: ["store"],
+    queryFn: () => fetchStore(),
+    staleTime: Infinity,
+  });
 }
 
 export function useCategories() {
@@ -46,27 +68,51 @@ export function useCategories() {
   });
 }
 
+
+// ─────────────────────────────────────────────
+// PRODUCTS
+// ─────────────────────────────────────────────
+
 export function useProductSearch(q: string, category: string) {
   return useQuery({
     queryKey: ["products", q, category],
-    queryFn: () => searchProducts({ data: { q, category } }),
+    queryFn: () =>
+      searchProducts({
+        data: {
+          q,
+          category,
+        },
+      }),
   });
 }
 
-export function useProduct(id: number) {  return useQuery({    queryKey: ["product", id],    queryFn: () => fetchProduct({ data: { id } }),   enabled: Number.isFinite(id),  });}export function useCart() {
+export function useProduct(id: number) {
+  return useQuery({
+    queryKey: ["product", id],
+    queryFn: () =>
+      fetchProduct({
+        data: { id },
+      }),
+    enabled: Number.isFinite(id),
+  });
+}
+
+
+// ─────────────────────────────────────────────
+// CART
+// ─────────────────────────────────────────────
+
+export function useCart() {
   const sessionId = useSession();
+
   return useQuery({
     queryKey: ["cart", sessionId],
-    queryFn: () => fetchCart({ data: { sessionId: sessionId! } }),
-    enabled: !!sessionId,
-  });
-}
-
-export function useList() {
-  const sessionId = useSession();
-  return useQuery({
-    queryKey: ["list", sessionId],
-    queryFn: () => fetchList({ data: { sessionId: sessionId! } }),
+    queryFn: () =>
+      fetchCart({
+        data: {
+          sessionId: sessionId!,
+        },
+      }),
     enabled: !!sessionId,
   });
 }
@@ -77,35 +123,73 @@ function useSessionMutation<TVars, TData>(
 ) {
   const sessionId = useSession();
   const queryClient = useQueryClient();
+
   return useMutation({
-    mutationFn: async (vars: TVars) => run(sessionId ?? getSessionId(), vars),
+    mutationFn: async (vars: TVars) => {
+      return run(sessionId ?? getSessionId(), vars);
+    },
+
     onSuccess: () => {
-      for (const key of invalidate) queryClient.invalidateQueries({ queryKey: [key] });
+      for (const key of invalidate) {
+        queryClient.invalidateQueries({
+          queryKey: [key],
+        });
+      }
     },
   });
 }
 
 export const useAddToCart = () =>
   useSessionMutation<{ productId: number }, unknown>(
-    (sessionId, { productId }) => addToCart({ data: { sessionId, productId } }),
+    (sessionId, { productId }) =>
+      addToCart({
+        data: {
+          sessionId,
+          productId,
+        },
+      }),
     ["cart"],
   );
 
 export const useUpdateCartItem = () =>
-  useSessionMutation<{ productId: number; quantity: number }, unknown>(
-    (sessionId, vars) => updateCartItem({ data: { sessionId, ...vars } }),
+  useSessionMutation<
+    { productId: number; quantity: number },
+    unknown
+  >(
+    (sessionId, vars) =>
+      updateCartItem({
+        data: {
+          sessionId,
+          ...vars,
+        },
+      }),
     ["cart"],
   );
 
 export const useRemoveFromCart = () =>
   useSessionMutation<{ productId: number }, unknown>(
-    (sessionId, vars) => removeFromCart({ data: { sessionId, ...vars } }),
+    (sessionId, vars) =>
+      removeFromCart({
+        data: {
+          sessionId,
+          ...vars,
+        },
+      }),
     ["cart"],
   );
 
 export const useScan = () =>
-  useSessionMutation<{ barcode: string }, Awaited<ReturnType<typeof scanProduct>>>(
-    (sessionId, vars) => scanProduct({ data: { sessionId, ...vars } }),
+  useSessionMutation<
+    { barcode: string },
+    Awaited<ReturnType<typeof scanProduct>>
+  >(
+    (sessionId, vars) =>
+      scanProduct({
+        data: {
+          sessionId,
+          ...vars,
+        },
+      }),
     ["cart"],
   );
 
@@ -129,70 +213,18 @@ export const useCheckout = () => {
   });
 };
 
-export const useAddToList = () =>
-  useSessionMutation<{ productId: number }, unknown>(
-    (sessionId, vars) => addToList({ data: { sessionId, ...vars } }),
-    ["list"],
-  );
 
-export const useRemoveFromList = () =>
-  useSessionMutation<{ productId: number }, unknown>(
-    (sessionId, vars) => removeFromList({ data: { sessionId, ...vars } }),
-    ["list"],
-  );
+// ─────────────────────────────────────────────
+// LIST
+// ─────────────────────────────────────────────
 
-export const useSetListStatus = () =>
-  useSessionMutation<{ productId: number; status: "pending" | "found" }, unknown>(
-    (sessionId, vars) => setListStatus({ data: { sessionId, ...vars } }),
-    ["list"],
-  );
-
-export const useAddListToCart = () =>
-  useSessionMutation<void, unknown>(
-    (sessionId) => addListToCart({ data: { sessionId } }),
-    ["cart", "list"],
-  );
-
-export const useSetPosition = () =>
-  useSessionMutation<{ nodeId: string }, unknown>(
-    (sessionId, vars) => updateCartPosition({ data: { sessionId, ...vars } }),
-    ["cart"],
-  );
-
-export type Route = Awaited<ReturnType<typeof calculateRoute>>;
-export type OptimizedRoute = Awaited<ReturnType<typeof optimizeRoute>>;
-
-export const useRoute = () =>
-  useMutation({
-    mutationFn: (vars: { from: string; to: string }) => calculateRoute({ data: vars }),
-  });
-
-export const useOptimizedRoute = () => {
-  const sessionId = useSession();
-  return useMutation({
-    mutationFn: (vars: { from?: string }) =>
-      optimizeRoute({ data: { sessionId: sessionId ?? getSessionId(), from: vars.from } }),
-  });
-};
-export function useRetailerDashboard() {
-  return useQuery({
-    queryKey: ["retailer-dashboard"],
-    queryFn: () => fetchRetailerDashboard(),
-  });
-}
-export function useRetailerInventory() {
-  return useQuery({
-    queryKey: ["retailer-inventory"],
-    queryFn: () => fetchRetailerInventory(),
-  });
-}
-export function useSavingsRecommendations() {
+export function useList() {
   const sessionId = useSession();
 
   return useQuery({
-    queryKey: ["savings-recommendations", sessionId],
+    queryKey: ["list", sessionId],
     queryFn: () =>
-      fetchSavingsRecommendations({
+      fetchList({
         data: {
           sessionId: sessionId!,
         },
@@ -200,9 +232,202 @@ export function useSavingsRecommendations() {
     enabled: !!sessionId,
   });
 }
+
+export const useAddToList = () =>
+  useSessionMutation<{ productId: number }, unknown>(
+    (sessionId, vars) =>
+      addToList({
+        data: {
+          sessionId,
+          ...vars,
+        },
+      }),
+    ["list"],
+  );
+
+export const useRemoveFromList = () =>
+  useSessionMutation<{ productId: number }, unknown>(
+    (sessionId, vars) =>
+      removeFromList({
+        data: {
+          sessionId,
+          ...vars,
+        },
+      }),
+    ["list"],
+  );
+
+export const useSetListStatus = () =>
+  useSessionMutation<
+    {
+      productId: number;
+      status: "pending" | "found";
+    },
+    unknown
+  >(
+    (sessionId, vars) =>
+      setListStatus({
+        data: {
+          sessionId,
+          ...vars,
+        },
+      }),
+    ["list"],
+  );
+
+export const useAddListToCart = () =>
+  useSessionMutation<void, unknown>(
+    (sessionId) =>
+      addListToCart({
+        data: {
+          sessionId,
+        },
+      }),
+    ["cart", "list"],
+  );
+
+
+// ─────────────────────────────────────────────
+// MAP / ROUTING
+// ─────────────────────────────────────────────
+
+export const useSetPosition = () =>
+  useSessionMutation<{ nodeId: string }, unknown>(
+    (sessionId, vars) =>
+      updateCartPosition({
+        data: {
+          sessionId,
+          ...vars,
+        },
+      }),
+    ["cart"],
+  );
+
+export type Route =
+  Awaited<ReturnType<typeof calculateRoute>>;
+
+export type OptimizedRoute =
+  Awaited<ReturnType<typeof optimizeRoute>>;
+
+export const useRoute = () =>
+  useMutation({
+    mutationFn: (vars: {
+      from: string;
+      to: string;
+    }) =>
+      calculateRoute({
+        data: vars,
+      }),
+  });
+
+export const useOptimizedRoute = () => {
+  const sessionId = useSession();
+
+  return useMutation({
+    mutationFn: (vars: { from?: string }) =>
+      optimizeRoute({
+        data: {
+          sessionId: sessionId ?? getSessionId(),
+          from: vars.from,
+        },
+      }),
+  });
+};
+
+
+// ─────────────────────────────────────────────
+// RETAILER DASHBOARD
+// ─────────────────────────────────────────────
+
+export function useRetailerDashboard() {
+  return useQuery({
+    queryKey: ["retailer-dashboard"],
+    queryFn: () => fetchRetailerDashboard(),
+  });
+}
+
+export function useRetailerInventory() {
+  return useQuery({
+    queryKey: ["retailer-inventory"],
+    queryFn: () => fetchRetailerInventory(),
+  });
+}
+
+
+// ─────────────────────────────────────────────
+// RETAILER INVENTORY RECOMMENDATIONS
+// ─────────────────────────────────────────────
+
 export function useInventoryRecommendations() {
   return useQuery({
     queryKey: ["inventory-recommendations"],
     queryFn: () => fetchInventoryRecommendations(),
+  });
+}
+
+
+// ─────────────────────────────────────────────
+// RETAILER SALES INTELLIGENCE
+// ─────────────────────────────────────────────
+
+export function useRetailerSalesIntelligence() {
+  return useQuery({
+    queryKey: ["retailer-sales-intelligence"],
+    queryFn: () => fetchRetailerSalesIntelligence(),
+  });
+}
+
+
+// ─────────────────────────────────────────────
+// CUSTOMER SAVINGS
+// ─────────────────────────────────────────────
+
+export function useSavingsRecommendations() {
+  const sessionId = useSession();
+
+  return useQuery({
+    queryKey: ["savings-recommendations", sessionId],
+
+    queryFn: () =>
+      fetchSavingsRecommendations({
+        data: {
+          sessionId: sessionId!,
+        },
+      }),
+
+    enabled: !!sessionId,
+  });
+}
+export function useRestockProduct() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      productId,
+      quantity,
+    }: {
+      productId: number;
+      quantity: number;
+    }) =>
+      restockProduct({
+        data: {
+          productId,
+          quantity,
+        },
+      }),
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        queryKey: ["retailer-inventory"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["retailer-dashboard"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["retailer-sales-intelligence"],
+      });
+    },
   });
 }

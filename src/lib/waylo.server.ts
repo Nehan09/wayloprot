@@ -29,18 +29,22 @@ export async function getStore() {
 
   return {
     store: "Waylo Mart",
+
     nodes: nodes.data.map((n) => ({
       ...n,
       x: Number(n.x),
       y: Number(n.y),
     })) as MapNode[],
+
     edges: edges.data as MapEdge[],
+
     aisles: aisles.data,
   };
 }
 
 async function getGraph() {
   const { nodes, edges } = await getStore();
+
   return buildGraph(nodes, edges);
 }
 
@@ -72,7 +76,25 @@ export async function searchProducts(
 
   if (error) throw error;
 
-  return data ?? [];
+  return (data ?? []).map((product: any) => {
+    const stock = Number(product.stock_quantity ?? 0);
+    const reorderLevel = Number(
+      product.reorder_level ?? 10,
+    );
+
+    let availability = "In Stock";
+
+    if (stock <= 0) {
+      availability = "Out of Stock";
+    } else if (stock <= reorderLevel) {
+      availability = "Low Stock";
+    }
+
+    return {
+      ...product,
+      availability,
+    };
+  });
 }
 
 export async function getCategories() {
@@ -103,7 +125,9 @@ export async function getProduct(id: number) {
   return data;
 }
 
-export async function getProductByBarcode(barcode: string) {
+export async function getProductByBarcode(
+  barcode: string,
+) {
   const { data, error } = await db
     .from("products")
     .select("*")
@@ -117,7 +141,9 @@ export async function getProductByBarcode(barcode: string) {
 
 /* ----------------------------------- cart ---------------------------------- */
 
-export async function ensureCart(sessionId: string) {
+export async function ensureCart(
+  sessionId: string,
+) {
   const existing = await db
     .from("carts")
     .select("*")
@@ -144,7 +170,9 @@ export async function ensureCart(sessionId: string) {
   return created.data;
 }
 
-async function recalculateTotal(cartId: string) {
+async function recalculateTotal(
+  cartId: string,
+) {
   const { data, error } = await db
     .from("cart_items")
     .select("quantity,price")
@@ -154,7 +182,9 @@ async function recalculateTotal(cartId: string) {
 
   const total = (data ?? []).reduce(
     (sum, item) =>
-      sum + Number(item.price) * item.quantity,
+      sum +
+      Number(item.price) *
+        item.quantity,
     0,
   );
 
@@ -162,7 +192,8 @@ async function recalculateTotal(cartId: string) {
     .from("carts")
     .update({
       total,
-      updated_at: new Date().toISOString(),
+      updated_at:
+        new Date().toISOString(),
     })
     .eq("id", cartId);
 
@@ -171,7 +202,9 @@ async function recalculateTotal(cartId: string) {
   return total;
 }
 
-export async function getCart(sessionId: string) {
+export async function getCart(
+  sessionId: string,
+) {
   const cart = await ensureCart(sessionId);
 
   const { data, error } = await db
@@ -184,11 +217,15 @@ export async function getCart(sessionId: string) {
 
   if (error) throw error;
 
-  const items = (data ?? []).map((item) => ({
-    ...item,
-    price: Number(item.price),
-    subtotal: Number(item.price) * item.quantity,
-  }));
+  const items = (data ?? []).map(
+    (item) => ({
+      ...item,
+      price: Number(item.price),
+      subtotal:
+        Number(item.price) *
+        item.quantity,
+    }),
+  );
 
   return {
     cart: {
@@ -199,12 +236,14 @@ export async function getCart(sessionId: string) {
     items,
 
     itemCount: items.reduce(
-      (sum, item) => sum + item.quantity,
+      (sum, item) =>
+        sum + item.quantity,
       0,
     ),
 
     total: items.reduce(
-      (sum, item) => sum + item.subtotal,
+      (sum, item) =>
+        sum + item.subtotal,
       0,
     ),
   };
@@ -216,12 +255,16 @@ export async function addCartItem(
   quantity = 1,
   source = "manual",
 ) {
-  const cart = await ensureCart(sessionId);
+  const cart =
+    await ensureCart(sessionId);
 
-  const product = await getProduct(productId);
+  const product =
+    await getProduct(productId);
 
   if (!product) {
-    throw new Error("Product not found");
+    throw new Error(
+      "Product not found",
+    );
   }
 
   const existing = await db
@@ -231,18 +274,26 @@ export async function addCartItem(
     .eq("product_id", productId)
     .maybeSingle();
 
-  if (existing.error) throw existing.error;
+  if (existing.error) {
+    throw existing.error;
+  }
 
   if (existing.data) {
     const updated = await db
       .from("cart_items")
       .update({
         quantity:
-          existing.data.quantity + quantity,
+          existing.data.quantity +
+          quantity,
       })
-      .eq("id", existing.data.id);
+      .eq(
+        "id",
+        existing.data.id,
+      );
 
-    if (updated.error) throw updated.error;
+    if (updated.error) {
+      throw updated.error;
+    }
   } else {
     const inserted = await db
       .from("cart_items")
@@ -254,7 +305,9 @@ export async function addCartItem(
         source,
       });
 
-    if (inserted.error) throw inserted.error;
+    if (inserted.error) {
+      throw inserted.error;
+    }
   }
 
   await recalculateTotal(cart.id);
@@ -270,10 +323,14 @@ export async function setCartItemQuantity(
   productId: number,
   quantity: number,
 ) {
-  const cart = await ensureCart(sessionId);
+  const cart =
+    await ensureCart(sessionId);
 
   if (quantity <= 0) {
-    return removeCartItem(sessionId, productId);
+    return removeCartItem(
+      sessionId,
+      productId,
+    );
   }
 
   const updated = await db
@@ -282,7 +339,9 @@ export async function setCartItemQuantity(
     .eq("cart_id", cart.id)
     .eq("product_id", productId);
 
-  if (updated.error) throw updated.error;
+  if (updated.error) {
+    throw updated.error;
+  }
 
   await recalculateTotal(cart.id);
 
@@ -293,7 +352,8 @@ export async function removeCartItem(
   sessionId: string,
   productId: number,
 ) {
-  const cart = await ensureCart(sessionId);
+  const cart =
+    await ensureCart(sessionId);
 
   const deleted = await db
     .from("cart_items")
@@ -301,7 +361,9 @@ export async function removeCartItem(
     .eq("cart_id", cart.id)
     .eq("product_id", productId);
 
-  if (deleted.error) throw deleted.error;
+  if (deleted.error) {
+    throw deleted.error;
+  }
 
   await recalculateTotal(cart.id);
 
@@ -312,22 +374,28 @@ export async function scanBarcode(
   sessionId: string,
   barcode: string,
 ) {
-  const product = await getProductByBarcode(barcode);
+  const product =
+    await getProductByBarcode(
+      barcode,
+    );
 
   if (!product) {
     return {
       found: false as const,
       product: null,
-      cart: await getCart(sessionId),
+      cart: await getCart(
+        sessionId,
+      ),
     };
   }
 
-  const { cart } = await addCartItem(
-    sessionId,
-    product.id,
-    1,
-    "scanner",
-  );
+  const { cart } =
+    await addCartItem(
+      sessionId,
+      product.id,
+      1,
+      "scanner",
+    );
 
   return {
     found: true as const,
@@ -336,8 +404,21 @@ export async function scanBarcode(
   };
 }
 
-export async function checkoutCart(sessionId: string) {
-  const { cart, items, total, itemCount } = await getCart(sessionId);
+export async function checkoutCart(
+  sessionId: string,
+) {
+  const {
+    cart,
+    items,
+    total,
+    itemCount,
+  } = await getCart(sessionId);
+
+  if (!items.length) {
+    throw new Error(
+      "Cannot checkout an empty cart.",
+    );
+  }
 
   const inserted = await db
     .from("checkouts")
@@ -349,46 +430,155 @@ export async function checkoutCart(sessionId: string) {
     .select("*")
     .single();
 
-  if (inserted.error) throw inserted.error;
+  if (inserted.error) {
+    throw inserted.error;
+  }
 
-  // Clear all items from the cart after successful checkout
+  const checkoutItems =
+    items.map((item) => ({
+      checkout_id:
+        inserted.data.id,
+      product_id:
+        item.product.id,
+      quantity:
+        item.quantity,
+      unit_price:
+        item.price,
+      total_price:
+        item.subtotal,
+    }));
+
+  const checkoutItemsResult =
+    await (db as any)
+      .from("checkout_items")
+      .insert(checkoutItems);
+
+  if (checkoutItemsResult.error) {
+    throw checkoutItemsResult.error;
+  }
+
+  for (const item of items) {
+    const productResult =
+      await (db as any)
+        .from("products")
+        .select(
+          "id, stock_quantity, reorder_level",
+        )
+        .eq(
+          "id",
+          item.product.id,
+        )
+        .single();
+
+    if (productResult.error) {
+      throw productResult.error;
+    }
+
+    const product =
+      productResult.data;
+
+    const currentStock =
+      Number(
+        product.stock_quantity ??
+          0,
+      );
+
+    const reorderLevel =
+      Number(
+        product.reorder_level ??
+          10,
+      );
+
+    const newStock =
+      Math.max(
+        0,
+        currentStock -
+          item.quantity,
+      );
+
+    let availability =
+      "In Stock";
+
+    if (newStock <= 0) {
+      availability =
+        "Out of Stock";
+    } else if (
+      newStock <=
+      reorderLevel
+    ) {
+      availability =
+        "Low Stock";
+    }
+
+    const stockUpdate =
+      await (db as any)
+        .from("products")
+        .update({
+          stock_quantity:
+            newStock,
+          availability,
+        })
+        .eq(
+          "id",
+          product.id,
+        );
+
+    if (stockUpdate.error) {
+      throw stockUpdate.error;
+    }
+  }
+
   const deleted = await db
     .from("cart_items")
     .delete()
     .eq("cart_id", cart.id);
 
-  if (deleted.error) throw deleted.error;
+  if (deleted.error) {
+    throw deleted.error;
+  }
 
-  // Reset cart for the next shopping session
   const updated = await db
     .from("carts")
     .update({
       total: 0,
       status: "active",
-      current_node_id: ENTRANCE,
-      updated_at: new Date().toISOString(),
+      current_node_id:
+        ENTRANCE,
+      updated_at:
+        new Date().toISOString(),
     })
     .eq("id", cart.id);
 
-  if (updated.error) throw updated.error;
+  if (updated.error) {
+    throw updated.error;
+  }
 
   return {
-    receipt: inserted.data,
+    receipt:
+      inserted.data,
     items,
     total,
     itemCount,
   };
 }
+
 /* ------------------------------ shopping list ----------------------------- */
 
-export async function ensureList(sessionId: string) {
+export async function ensureList(
+  sessionId: string,
+) {
   const existing = await db
     .from("shopping_lists")
     .select("*")
-    .eq("session_id", sessionId)
+    .eq(
+      "session_id",
+      sessionId,
+    )
     .maybeSingle();
 
-  if (existing.error) throw existing.error;
+  if (existing.error) {
+    throw existing.error;
+  }
 
   if (existing.data) {
     return existing.data;
@@ -402,19 +592,32 @@ export async function ensureList(sessionId: string) {
     .select("*")
     .single();
 
-  if (created.error) throw created.error;
+  if (created.error) {
+    throw created.error;
+  }
 
   return created.data;
 }
 
-export async function getList(sessionId: string) {
-  const list = await ensureList(sessionId);
+export async function getList(
+  sessionId: string,
+) {
+  const list =
+    await ensureList(sessionId);
 
-  const { data, error } = await db
-    .from("shopping_list_items")
-    .select("id,status,product:products(*)")
-    .eq("shopping_list_id", list.id)
-    .order("id");
+  const { data, error } =
+    await db
+      .from(
+        "shopping_list_items",
+      )
+      .select(
+        "id,status,product:products(*)",
+      )
+      .eq(
+        "shopping_list_id",
+        list.id,
+      )
+      .order("id");
 
   if (error) throw error;
 
@@ -428,24 +631,32 @@ export async function addListItem(
   sessionId: string,
   productId: number,
 ) {
-  const list = await ensureList(sessionId);
+  const list =
+    await ensureList(sessionId);
 
   const inserted = await db
-    .from("shopping_list_items")
+    .from(
+      "shopping_list_items",
+    )
     .upsert(
       {
-        shopping_list_id: list.id,
-        product_id: productId,
+        shopping_list_id:
+          list.id,
+        product_id:
+          productId,
         status: "pending",
       },
       {
         onConflict:
           "shopping_list_id,product_id",
-        ignoreDuplicates: true,
+        ignoreDuplicates:
+          true,
       },
     );
 
-  if (inserted.error) throw inserted.error;
+  if (inserted.error) {
+    throw inserted.error;
+  }
 
   return getList(sessionId);
 }
@@ -454,15 +665,26 @@ export async function removeListItem(
   sessionId: string,
   productId: number,
 ) {
-  const list = await ensureList(sessionId);
+  const list =
+    await ensureList(sessionId);
 
   const deleted = await db
-    .from("shopping_list_items")
+    .from(
+      "shopping_list_items",
+    )
     .delete()
-    .eq("shopping_list_id", list.id)
-    .eq("product_id", productId);
+    .eq(
+      "shopping_list_id",
+      list.id,
+    )
+    .eq(
+      "product_id",
+      productId,
+    );
 
-  if (deleted.error) throw deleted.error;
+  if (deleted.error) {
+    throw deleted.error;
+  }
 
   return getList(sessionId);
 }
@@ -472,21 +694,35 @@ export async function setListItemStatus(
   productId: number,
   status: string,
 ) {
-  const list = await ensureList(sessionId);
+  const list =
+    await ensureList(sessionId);
 
   const updated = await db
-    .from("shopping_list_items")
+    .from(
+      "shopping_list_items",
+    )
     .update({ status })
-    .eq("shopping_list_id", list.id)
-    .eq("product_id", productId);
+    .eq(
+      "shopping_list_id",
+      list.id,
+    )
+    .eq(
+      "product_id",
+      productId,
+    );
 
-  if (updated.error) throw updated.error;
+  if (updated.error) {
+    throw updated.error;
+  }
 
   return getList(sessionId);
 }
 
-export async function addListToCart(sessionId: string) {
-  const { items } = await getList(sessionId);
+export async function addListToCart(
+  sessionId: string,
+) {
+  const { items } =
+    await getList(sessionId);
 
   for (const item of items) {
     if (item.product) {
@@ -508,20 +744,25 @@ export async function setCartPosition(
   sessionId: string,
   nodeId: string,
 ) {
-  const cart = await ensureCart(sessionId);
+  const cart =
+    await ensureCart(sessionId);
 
   const updated = await db
     .from("carts")
     .update({
-      current_node_id: nodeId,
+      current_node_id:
+        nodeId,
     })
     .eq("id", cart.id);
 
-  if (updated.error) throw updated.error;
+  if (updated.error) {
+    throw updated.error;
+  }
 
   return {
     ...cart,
-    current_node_id: nodeId,
+    current_node_id:
+      nodeId,
   };
 }
 
@@ -529,7 +770,8 @@ export async function calculateRoute(
   fromNodeId: string,
   toNodeId: string,
 ) {
-  const graph = await getGraph();
+  const graph =
+    await getGraph();
 
   const result = aStar(
     graph,
@@ -547,13 +789,16 @@ export async function calculateRoute(
     from: fromNodeId,
     to: toNodeId,
     path: result.path,
-    nodeIds: result.path.map(
-      (node) => node.id,
-    ),
-    distance: result.distance,
-    instructions: routeInstructions(
-      result.path,
-    ),
+    nodeIds:
+      result.path.map(
+        (node) => node.id,
+      ),
+    distance:
+      result.distance,
+    instructions:
+      routeInstructions(
+        result.path,
+      ),
   };
 }
 
@@ -576,11 +821,12 @@ export async function optimizeListRoute(
     cart.current_node_id ??
     ENTRANCE;
 
-  const pending = items.filter(
-    (item) =>
-      item.status !== "found" &&
-      item.product,
-  );
+  const pending =
+    items.filter(
+      (item) =>
+        item.status !== "found" &&
+        item.product,
+    );
 
   const stops: {
     nodeId: string;
@@ -593,24 +839,32 @@ export async function optimizeListRoute(
   }[] = [];
 
   for (const item of pending) {
-    const product = item.product!;
+    const product =
+      item.product!;
 
-    const stop = stops.find(
-      (s) =>
-        s.nodeId === product.map_node_id,
-    );
+    const stop =
+      stops.find(
+        (s) =>
+          s.nodeId ===
+          product.map_node_id,
+      );
 
     const entry = {
       id: product.id,
       name: product.name,
-      price: Number(product.price),
+      price: Number(
+        product.price,
+      ),
     };
 
     if (stop) {
-      stop.products.push(entry);
+      stop.products.push(
+        entry,
+      );
     } else {
       stops.push({
-        nodeId: product.map_node_id,
+        nodeId:
+          product.map_node_id,
         label: `Aisle ${product.aisle}`,
         products: [entry],
       });
@@ -631,39 +885,48 @@ export async function optimizeListRoute(
   }[] = [];
 
   let current = start;
-  const remaining = [...stops];
 
-  while (remaining.length > 0) {
+  const remaining = [
+    ...stops,
+  ];
+
+  while (
+    remaining.length > 0
+  ) {
     let bestIndex = 0;
 
-    const firstStop = remaining[0];
+    const firstStop =
+      remaining[0];
 
     if (!firstStop) {
       break;
     }
 
-    let bestRoute = aStar(
-      graph,
-      current,
-      firstStop.nodeId,
-    );
+    let bestRoute =
+      aStar(
+        graph,
+        current,
+        firstStop.nodeId,
+      );
 
     for (
       let i = 1;
       i < remaining.length;
       i++
     ) {
-      const stop = remaining[i];
+      const stop =
+        remaining[i];
 
       if (!stop) {
         continue;
       }
 
-      const candidate = aStar(
-        graph,
-        current,
-        stop.nodeId,
-      );
+      const candidate =
+        aStar(
+          graph,
+          current,
+          stop.nodeId,
+        );
 
       if (
         candidate &&
@@ -671,15 +934,17 @@ export async function optimizeListRoute(
           candidate.distance <
             bestRoute.distance)
       ) {
-        bestRoute = candidate;
+        bestRoute =
+          candidate;
         bestIndex = i;
       }
     }
 
-    const next = remaining.splice(
-      bestIndex,
-      1,
-    )[0];
+    const next =
+      remaining.splice(
+        bestIndex,
+        1,
+      )[0];
 
     if (!next || !bestRoute) {
       continue;
@@ -689,55 +954,64 @@ export async function optimizeListRoute(
       from: current,
       to: next.nodeId,
       label: next.label,
-      distance: bestRoute.distance,
-      nodeIds: bestRoute.path.map(
-        (node) => node.id,
-      ),
-      products: next.products,
+      distance:
+        bestRoute.distance,
+      nodeIds:
+        bestRoute.path.map(
+          (node) => node.id,
+        ),
+      products:
+        next.products,
     });
 
-    current = next.nodeId;
+    current =
+      next.nodeId;
   }
 
-  const finalLeg = aStar(
-    graph,
-    current,
-    CHECKOUT,
-  );
+  const finalLeg =
+    aStar(
+      graph,
+      current,
+      CHECKOUT,
+    );
 
   if (finalLeg) {
     legs.push({
       from: current,
       to: CHECKOUT,
       label: "Checkout",
-      distance: finalLeg.distance,
-      nodeIds: finalLeg.path.map(
-        (node) => node.id,
-      ),
+      distance:
+        finalLeg.distance,
+      nodeIds:
+        finalLeg.path.map(
+          (node) => node.id,
+        ),
       products: [],
     });
   }
 
-  const nodeIds = legs.flatMap(
-    (leg, index) =>
-      index === 0
-        ? leg.nodeIds
-        : leg.nodeIds.slice(1),
-  );
+  const nodeIds =
+    legs.flatMap(
+      (leg, index) =>
+        index === 0
+          ? leg.nodeIds
+          : leg.nodeIds.slice(1),
+    );
 
   return {
     start,
     legs,
     nodeIds,
-    totalDistance: Number(
-      legs
-        .reduce(
-          (sum, leg) =>
-            sum + leg.distance,
-          0,
-        )
-        .toFixed(1),
-    ),
+    totalDistance:
+      Number(
+        legs
+          .reduce(
+            (sum, leg) =>
+              sum + leg.distance,
+            0,
+          )
+          .toFixed(1),
+      ),
   };
 }
 
@@ -746,11 +1020,12 @@ export async function optimizeListRoute(
 export async function getRetailerDashboard() {
   const now = new Date();
 
-  const startOfDay = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
-  ).toISOString();
+  const startOfDay =
+    new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    ).toISOString();
 
   const {
     data: checkouts,
@@ -760,34 +1035,38 @@ export async function getRetailerDashboard() {
     .select(
       "total, item_count, created_at",
     )
-    .gte("created_at", startOfDay);
+    .gte(
+      "created_at",
+      startOfDay,
+    );
 
   if (checkoutError) {
     throw checkoutError;
   }
 
-  const revenue = (
-    checkouts ?? []
-  ).reduce(
-    (sum, checkout) =>
-      sum +
-      Number(checkout.total ?? 0),
-    0,
-  );
+  const revenue =
+    (checkouts ?? []).reduce(
+      (sum, checkout) =>
+        sum +
+        Number(
+          checkout.total ?? 0,
+        ),
+      0,
+    );
 
   const orders =
     checkouts?.length ?? 0;
 
-  const itemsSold = (
-    checkouts ?? []
-  ).reduce(
-    (sum, checkout) =>
-      sum +
-      Number(
-        checkout.item_count ?? 0,
-      ),
-    0,
-  );
+  const itemsSold =
+    (checkouts ?? []).reduce(
+      (sum, checkout) =>
+        sum +
+        Number(
+          checkout.item_count ??
+            0,
+        ),
+      0,
+    );
 
   const averageOrder =
     orders > 0
@@ -797,10 +1076,10 @@ export async function getRetailerDashboard() {
   const {
     data: products,
     error: productError,
-  } = await db
+  } = await (db as any)
     .from("products")
     .select(
-      "id, availability",
+      "id, name, stock_quantity, reorder_level, availability",
     );
 
   if (productError) {
@@ -812,22 +1091,69 @@ export async function getRetailerDashboard() {
 
   const outOfStock =
     products?.filter(
-      (product) =>
-        !product.availability,
+      (product: any) =>
+        Number(
+          product.stock_quantity ??
+            0,
+        ) <= 0,
+    ).length ?? 0;
+
+  const lowStock =
+    products?.filter(
+      (product: any) => {
+        const stock =
+          Number(
+            product.stock_quantity ??
+              0,
+          );
+
+        const reorderLevel =
+          Number(
+            product.reorder_level ??
+              10,
+          );
+
+        return (
+          stock > 0 &&
+          stock <=
+            reorderLevel
+        );
+      },
     ).length ?? 0;
 
   const inStock =
-    totalProducts -
-    outOfStock;
+    products?.filter(
+      (product: any) => {
+        const stock =
+          Number(
+            product.stock_quantity ??
+              0,
+          );
+
+        const reorderLevel =
+          Number(
+            product.reorder_level ??
+              10,
+          );
+
+        return (
+          stock >
+          reorderLevel
+        );
+      },
+    ).length ?? 0;
 
   return {
     revenue,
     orders,
     itemsSold,
     averageOrder,
+
     inventory: {
-      total: totalProducts,
+      total:
+        totalProducts,
       inStock,
+      lowStock,
       outOfStock,
     },
   };
@@ -840,7 +1166,7 @@ export async function getRetailerInventory() {
   } = await db
     .from("products")
     .select(
-      "id, name, brand, category, price, aisle, availability",
+      "id, name, brand, category, price, aisle, availability, stock_quantity, reorder_level",
     )
     .order("name", {
       ascending: true,
@@ -853,14 +1179,555 @@ export async function getRetailerInventory() {
   return data ?? [];
 }
 
+export async function restockProduct(
+  productId: number,
+  quantity: number,
+) {
+  if (quantity <= 0) {
+    throw new Error(
+      "Restock quantity must be greater than 0.",
+    );
+  }
+
+  const {
+    data: product,
+    error: productError,
+  } = await (db as any)
+    .from("products")
+    .select(
+      "id, stock_quantity, reorder_level",
+    )
+    .eq(
+      "id",
+      productId,
+    )
+    .single();
+
+  if (productError) {
+    throw productError;
+  }
+
+  if (!product) {
+    throw new Error(
+      "Product not found.",
+    );
+  }
+
+  const currentStock =
+    Number(
+      product.stock_quantity ??
+        0,
+    );
+
+  const reorderLevel =
+    Number(
+      product.reorder_level ??
+        10,
+    );
+
+  const newStock =
+    currentStock + quantity;
+
+  let availability =
+    "In Stock";
+
+  if (newStock <= 0) {
+    availability =
+      "Out of Stock";
+  } else if (
+    newStock <=
+    reorderLevel
+  ) {
+    availability =
+      "Low Stock";
+  }
+
+  const {
+    data,
+    error,
+  } = await (db as any)
+    .from("products")
+    .update({
+      stock_quantity:
+        newStock,
+      availability,
+    })
+    .eq(
+      "id",
+      productId,
+    )
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function getRetailerSalesIntelligence() {
+  const startOfDay =
+    new Date();
+
+  startOfDay.setHours(
+    0,
+    0,
+    0,
+    0,
+  );
+
+  const {
+    data: checkoutItems,
+    error,
+  } = await (db as any)
+    .from("checkout_items")
+    .select(
+      "product_id, quantity, total_price, created_at",
+    )
+    .gte(
+      "created_at",
+      startOfDay.toISOString(),
+    );
+
+  if (error) {
+    throw error;
+  }
+
+  const {
+    data: products,
+    error: productError,
+  } = await (db as any)
+    .from("products")
+    .select(
+      "id, name, brand, category, price, stock_quantity, reorder_level, aisle",
+    );
+
+  if (productError) {
+    throw productError;
+  }
+
+  const salesMap =
+    new Map<
+      number,
+      {
+        unitsSold: number;
+        revenue: number;
+      }
+    >();
+
+  for (
+    const item of
+      checkoutItems ?? []
+  ) {
+    const productId =
+      Number(
+        item.product_id,
+      );
+
+    const existing =
+      salesMap.get(
+        productId,
+      ) ?? {
+        unitsSold: 0,
+        revenue: 0,
+      };
+
+    salesMap.set(
+      productId,
+      {
+        unitsSold:
+          existing.unitsSold +
+          Number(
+            item.quantity ?? 0,
+          ),
+
+        revenue:
+          existing.revenue +
+          Number(
+            item.total_price ??
+              0,
+          ),
+      },
+    );
+  }
+
+  return (
+    products ?? []
+  )
+    .map(
+      (product: any) => {
+        const sales =
+          salesMap.get(
+            Number(
+              product.id,
+            ),
+          ) ?? {
+            unitsSold: 0,
+            revenue: 0,
+          };
+
+        const stock =
+          Number(
+            product.stock_quantity ??
+              0,
+          );
+
+        const reorderLevel =
+          Number(
+            product.reorder_level ??
+              10,
+          );
+
+        let priority:
+          | "High"
+          | "Medium"
+          | "Normal" =
+          "Normal";
+
+        if (stock <= 0) {
+          priority =
+            "High";
+        } else if (
+          sales.unitsSold >=
+            5 &&
+          stock <=
+            reorderLevel
+        ) {
+          priority =
+            "High";
+        } else if (
+          sales.unitsSold >=
+            3 &&
+          stock <=
+            reorderLevel
+        ) {
+          priority =
+            "Medium";
+        }
+
+        const revenueAtRisk =
+          sales.unitsSold > 0 &&
+          stock <=
+            reorderLevel
+            ? sales.unitsSold *
+              Number(
+                product.price ??
+                  0,
+              )
+            : 0;
+
+        const targetStock =
+          Math.max(
+            reorderLevel * 2,
+            sales.unitsSold * 3,
+          );
+
+        const suggestedRestock =
+          Math.max(
+            0,
+            targetStock -
+              stock,
+          );
+
+        let reason =
+          "Stable demand and healthy stock.";
+
+        if (stock <= 0) {
+          reason =
+            "Product is out of stock and requires immediate restocking.";
+        } else if (
+          priority ===
+          "High"
+        ) {
+          reason =
+            "High demand with stock at or below the reorder level.";
+        } else if (
+          priority ===
+          "Medium"
+        ) {
+          reason =
+            "Demand is increasing and stock is approaching the reorder level.";
+        } else if (
+          sales.unitsSold >
+          0
+        ) {
+          reason =
+            "Product is selling but current stock is sufficient.";
+        }
+
+        const promotionOpportunity =
+          sales.unitsSold <= 2 &&
+          stock >
+            reorderLevel * 2;
+
+        return {
+          productId:
+            Number(
+              product.id,
+            ),
+
+          productName:
+            product.name,
+
+          brand:
+            product.brand ??
+            null,
+
+          category:
+            product.category ??
+            null,
+
+          aisle:
+            product.aisle ??
+            null,
+
+          unitsSold:
+            sales.unitsSold,
+
+          revenue:
+            sales.revenue,
+
+          stockQuantity:
+            stock,
+
+          reorderLevel:
+            reorderLevel,
+
+          priority,
+
+          revenueAtRisk,
+
+          suggestedRestock,
+
+          reason,
+
+          promotionOpportunity,
+
+          price:
+            Number(
+              product.price ??
+                0,
+            ),
+        };
+      },
+    )
+    .sort(
+      (
+        first: any,
+        second: any,
+      ) => {
+        const getPriority =
+          (
+            priority: string,
+          ) => {
+            if (
+              priority ===
+              "High"
+            ) {
+              return 3;
+            }
+
+            if (
+              priority ===
+              "Medium"
+            ) {
+              return 2;
+            }
+
+            return 1;
+          };
+
+        const firstRank =
+          getPriority(
+            String(
+              first.priority,
+            ),
+          );
+
+        const secondRank =
+          getPriority(
+            String(
+              second.priority,
+            ),
+          );
+
+        if (
+          secondRank >
+          firstRank
+        ) {
+          return 1;
+        }
+
+        if (
+          secondRank <
+          firstRank
+        ) {
+          return -1;
+        }
+
+        return (
+          Number(
+            second.unitsSold ??
+              0,
+          ) -
+          Number(
+            first.unitsSold ??
+              0,
+          )
+        );
+      },
+    );
+}
+
+
+
+
+
+/* ----------------------- inventory recommendations ----------------------- */
+
+export async function getInventoryRecommendations() {
+  const {
+    data: products,
+    error,
+  } = await db
+    .from("products")
+    .select(
+      "id, name, brand, category, price, aisle, stock_quantity, reorder_level",
+    )
+    .order("name", {
+      ascending: true,
+    });
+
+  if (error) {
+    throw error;
+  }
+
+  const recommendations =
+    (products ?? []).map(
+      (product: any) => {
+        const stock =
+          Number(
+            product.stock_quantity ??
+              0,
+          );
+
+        const reorderLevel =
+          Number(
+            product.reorder_level ??
+              10,
+          );
+
+        if (stock <= 0) {
+          return {
+            productId:
+              product.id,
+
+            productName:
+              product.name,
+
+            brand:
+              product.brand,
+
+            category:
+              product.category,
+
+            aisle:
+              product.aisle,
+
+            stockQuantity:
+              stock,
+
+            reorderLevel,
+
+            status:
+              "urgent",
+
+            recommendation:
+              "Restock immediately",
+
+            reason:
+              "Product is currently out of stock",
+          };
+        }
+
+        if (
+          stock <=
+          reorderLevel
+        ) {
+          return {
+            productId:
+              product.id,
+
+            productName:
+              product.name,
+
+            brand:
+              product.brand,
+
+            category:
+              product.category,
+
+            aisle:
+              product.aisle,
+
+            stockQuantity:
+              stock,
+
+            reorderLevel,
+
+            status:
+              "warning",
+
+            recommendation:
+              "Restock soon",
+
+            reason:
+              "Stock has reached the reorder level",
+          };
+        }
+
+        return {
+          productId:
+            product.id,
+
+          productName:
+            product.name,
+
+          brand:
+            product.brand,
+
+          category:
+            product.category,
+
+          aisle:
+            product.aisle,
+
+          stockQuantity:
+            stock,
+
+          reorderLevel,
+
+          status:
+            "healthy",
+
+          recommendation:
+            "No action required",
+
+          reason:
+            "Stock level is healthy",
+        };
+      },
+    );
+
+  return recommendations;
+}
 /* -------------------------- AI savings ------------------------------------ */
 
 export async function getSavingsRecommendations(
   sessionId: string,
 ) {
-  const cart = await getCart(
-    sessionId,
-  );
+  const cart = await getCart(sessionId);
 
   const recommendations: {
     currentProduct: string;
@@ -878,101 +1745,41 @@ export async function getSavingsRecommendations(
       continue;
     }
 
-    const alternatives =
-      await searchProducts(
-        "",
-        product.category ?? "",
+    const alternatives = await searchProducts(
+      "",
+      product.category ?? "",
+    );
+
+    const cheaper = alternatives
+      .filter(
+        (alternative: any) =>
+          alternative.id !== product.id &&
+          Number(alternative.price) < Number(product.price) &&
+          Number(alternative.stock_quantity ?? 0) > 0,
+      )
+      .sort(
+        (a: any, b: any) =>
+          Number(a.price) - Number(b.price),
       );
 
-    const cheaper =
-      alternatives
-        .filter(
-          (alternative) =>
-            alternative.id !==
-              product.id &&
-            Number(
-              alternative.price,
-            ) <
-              Number(
-                product.price,
-              ),
-        )
-        .sort(
-          (a, b) =>
-            Number(a.price) -
-            Number(b.price),
-        );
-
-    const alternative =
-      cheaper[0];
+    const alternative = cheaper[0];
 
     if (!alternative) {
       continue;
     }
 
-    const currentPrice =
-      Number(product.price);
-
-    const suggestedPrice =
-      Number(alternative.price);
+    const currentPrice = Number(product.price);
+    const suggestedPrice = Number(alternative.price);
 
     recommendations.push({
-      currentProduct:
-        product.name,
-
+      currentProduct: product.name,
       currentPrice,
-
-      suggestedProduct:
-        alternative.name,
-
+      suggestedProduct: alternative.name,
       suggestedPrice,
-
-      saving:
-        currentPrice -
-        suggestedPrice,
-
-      reason:
-        "Similar product available for less",
+      saving: currentPrice - suggestedPrice,
+      reason: "Similar product available for less",
     });
   }
-
-  return recommendations;
-}
-export async function getInventoryRecommendations() {
-  const { data: products, error } = await db
-    .from("products")
-    .select("id, name, brand, category, price, availability, aisle")
-    .order("name", { ascending: true });
-
-  if (error) {
-    throw error;
-  }
-
-  const recommendations = (products ?? []).map((product) => {
-    if (!product.availability) {
-      return {
-        productId: product.id,
-        productName: product.name,
-        brand: product.brand,
-        category: product.category,
-        aisle: product.aisle,
-        status: "urgent",
-        recommendation: "Restock immediately",
-        reason: "Product is currently out of stock",
-      };
-    }
-
-    return {
-      productId: product.id,
-      productName: product.name,
-      brand: product.brand,
-      category: product.category,
-      aisle: product.aisle,
-      status: "healthy",
-      recommendation: "Stock level is healthy",
-      reason: "Product is currently available",
-    };
-  });
 
   return recommendations;
 }

@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import {
+  useCart,
+  useRetailerSalesIntelligence,
+  useStore,
+} from "@/lib/waylo-client";
+
 import { MapLegend, StoreMap } from "@/components/waylo/StoreMap";
 import { rupees } from "@/lib/session";
-import { useCart, useStore } from "@/lib/waylo-client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -14,10 +19,14 @@ export const Route = createFileRoute("/")({
         content:
           "Start shopping: search products, open your list, scan items and see your live bill on the Waylo smart cart.",
       },
-      { property: "og:title", content: "Waylo Cart Home — Waylo Mart" },
+      {
+        property: "og:title",
+        content: "Waylo Cart Home — Waylo Mart",
+      },
       {
         property: "og:description",
-        content: "Smart cart home screen with live bill and indoor store map.",
+        content:
+          "Smart cart home screen with live bill and indoor store map.",
       },
     ],
   }),
@@ -54,7 +63,8 @@ const translations = {
     openMap: "मैप खोलें",
     cartAt: "कार्ट यहाँ है",
     liveBill: "लाइव बिल",
-    emptyCart: "कार्ट खाली है — शुरू करने के लिए उत्पाद स्कैन या जोड़ें",
+    emptyCart:
+      "कार्ट खाली है — शुरू करने के लिए उत्पाद स्कैन या जोड़ें",
     total: "कुल",
     items: "आइटम",
   },
@@ -90,27 +100,39 @@ const actions = [
     ),
     dark: true,
   },
+
   {
     to: "/list" as const,
     key: "list" as const,
     icon: (
       <>
-        <path d="M4 3h9l3 3v11H4z" strokeLinejoin="round" />
-        <path d="M8 9h6M8 13h6" strokeLinecap="round" />
+        <path
+          d="M4 3h9l3 3v11H4z"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M8 9h6M8 13h6"
+          strokeLinecap="round"
+        />
       </>
     ),
   },
+
   {
     to: "/cart" as const,
     key: "cart" as const,
     icon: (
       <>
-        <path d="M3 4h2l2 10h8l2-7H6" strokeLinejoin="round" />
+        <path
+          d="M3 4h2l2 10h8l2-7H6"
+          strokeLinejoin="round"
+        />
         <circle cx="9" cy="17" r="1.2" />
         <circle cx="15" cy="17" r="1.2" />
       </>
     ),
   },
+
   {
     to: "/map" as const,
     key: "map" as const,
@@ -120,7 +142,10 @@ const actions = [
           d="M3 6l4-2 6 2 4-2v12l-4 2-6-2-4 2z"
           strokeLinejoin="round"
         />
-        <path d="M7 4v12M13 6v12" strokeLinecap="round" />
+        <path
+          d="M7 4v12M13 6v12"
+          strokeLinecap="round"
+        />
       </>
     ),
   },
@@ -130,20 +155,64 @@ function Home() {
   const store = useStore();
   const cart = useCart();
 
+  const { data: rawSalesIntelligence } =
+    useRetailerSalesIntelligence();
+
   const [language, setLanguage] =
     useState<keyof typeof translations>("English");
 
   const t = translations[language];
 
-  const currentNode = cart.data?.cart.current_node_id ?? "entrance";
+  const currentNode =
+    cart.data?.cart.current_node_id ?? "entrance";
 
   const currentLabel =
-    store.data?.nodes.find((node) => node.id === currentNode)?.label ??
-    "Entrance";
+    store.data?.nodes.find(
+      (node) => node.id === currentNode,
+    )?.label ?? "Entrance";
+
+  /*
+   * Store Picks
+   *
+   * We intentionally use a flexible local type here because
+   * the backend may not yet return promotionOpportunity.
+   */
+  const salesIntelligence = Array.isArray(
+    rawSalesIntelligence,
+  )
+    ? (rawSalesIntelligence as Array<{
+        productId: number;
+        productName: string;
+        brand?: string | null;
+        category?: string | null;
+        aisle?: string | null;
+        unitsSold: number;
+        revenue: number;
+        stockQuantity: number;
+        reorderLevel: number;
+        priority: string;
+        revenueAtRisk: number;
+        price?: number;
+        promotionOpportunity?: boolean;
+      }>)
+    : [];
+
+  /*
+   * For now, Store Picks are based on products that
+   * sold today.
+   *
+   * This avoids depending on promotionOpportunity
+   * until that field is added to the backend.
+   */
+  const promotedProducts = salesIntelligence
+    .filter((product) => product.unitsSold > 0)
+    .slice(0, 4);
 
   return (
     <>
+      {/* HOME + MAP */}
       <section className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-12">
+        {/* LEFT PANEL */}
         <div className="lg:col-span-5">
           <div className="panel rounded-2xl p-4 sm:p-5">
 
@@ -154,18 +223,28 @@ function Home() {
                 value={language}
                 onChange={(e) =>
                   setLanguage(
-                    e.target.value as keyof typeof translations
+                    e.target.value as keyof typeof translations,
                   )
                 }
                 className="rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium"
               >
-                <option value="English">English</option>
-                <option value="Hindi">हिन्दी</option>
-                <option value="Telugu">తెలుగు</option>
+                <option value="English">
+                  English
+                </option>
+
+                <option value="Hindi">
+                  हिन्दी
+                </option>
+
+                <option value="Telugu">
+                  తెలుగు
+                </option>
               </select>
             </div>
 
-            <div className="eyebrow">{t.cartHome}</div>
+            <div className="eyebrow">
+              {t.cartHome}
+            </div>
 
             <h1 className="mt-1 max-w-[26ch] text-2xl font-semibold tracking-tight text-balance">
               {t.title}
@@ -183,7 +262,11 @@ function Home() {
                 strokeWidth="2"
               >
                 <circle cx="9" cy="9" r="6" />
-                <path d="M14 14l4 4" strokeLinecap="round" />
+
+                <path
+                  d="M14 14l4 4"
+                  strokeLinecap="round"
+                />
               </svg>
 
               <span className="text-base text-steel">
@@ -257,23 +340,26 @@ function Home() {
           </div>
         </div>
 
+        {/* MAP */}
         <div className="lg:col-span-7">
           <div className="panel flex h-full flex-col rounded-2xl p-4 sm:p-5">
 
             <div className="flex items-center justify-between">
               <div>
-                <div className="eyebrow">{t.indoorMap}</div>
+                <div className="eyebrow">
+                  {t.indoorMap}
+                </div>
 
                 <div className="mt-1 text-lg font-semibold tracking-tight">
                   {t.cartAt} {currentLabel}
                 </div>
               </div>
 
-  <a
+             <a
   href="/map"
   className="rounded-xl bg-ink px-4 py-3 text-sm font-semibold text-card"
 >
-  Open map
+  {t.openMap}
 </a>
             </div>
 
@@ -293,11 +379,72 @@ function Home() {
         </div>
       </section>
 
+      {/* STORE PICKS */}
+      {promotedProducts.length > 0 && (
+        <section className="mt-4 rounded-2xl bg-card p-4 ring-1 ring-border sm:p-5">
+
+          <div className="mb-4">
+            <div className="eyebrow">
+              WAYLO PICKS
+            </div>
+
+            <h2 className="mt-1 text-xl font-semibold tracking-tight">
+              Store Picks
+            </h2>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              Popular products you might want to check out.
+            </p>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {promotedProducts.map((product) => (
+              <Link
+                key={product.productId}
+                to="/product/$id"
+                params={{
+                  id: String(product.productId),
+                }}
+                className="rounded-xl bg-fog p-4 ring-1 ring-border transition hover:ring-2"
+              >
+                <p className="font-semibold">
+                  {product.productName}
+                </p>
+
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {product.brand ?? "Unknown brand"}
+                </p>
+
+                {product.category && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {product.category}
+                  </p>
+                )}
+
+                <p className="mt-3 text-lg font-bold">
+                  ₹
+                  {Number(
+                    product.price ?? 0,
+                  ).toFixed(2)}
+                </p>
+
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {product.unitsSold} sold today
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* LIVE BILL */}
       <section className="mt-4 rounded-2xl bg-ink/90 px-4 py-4 ring-1 ring-white/10 sm:px-5">
         <div className="flex items-center justify-between gap-4">
 
           <div>
-            <div className="eyebrow">{t.liveBill}</div>
+            <div className="eyebrow">
+              {t.liveBill}
+            </div>
 
             <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-card">
               {cart.data?.items.length ? (
@@ -310,7 +457,8 @@ function Home() {
                       .split(" ")
                       .slice(0, 2)
                       .join(" ")}{" "}
-                    ×{item.quantity} · {rupees(item.subtotal)}
+                    ×{item.quantity} ·{" "}
+                    {rupees(item.subtotal)}
                   </span>
                 ))
               ) : (
@@ -323,11 +471,15 @@ function Home() {
 
           <div className="text-right leading-tight">
             <div className="font-mono text-3xl font-bold tabular-nums text-card">
-              {rupees(cart.data?.total ?? 0)}
+              {rupees(
+                cart.data?.total ?? 0,
+              )}
             </div>
 
             <div className="text-[10px] uppercase tracking-[0.22em] text-steel">
-              {t.total} · {cart.data?.itemCount ?? 0} {t.items}
+              {t.total} ·{" "}
+              {cart.data?.itemCount ?? 0}{" "}
+              {t.items}
             </div>
           </div>
 

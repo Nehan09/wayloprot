@@ -3,6 +3,7 @@ import { rupees } from "@/lib/session";
 import {
   useCart,
   useRemoveFromCart,
+  useAddToCart,
   useUpdateCartItem,
   useSavingsRecommendations,
 } from "@/lib/waylo-client";
@@ -12,6 +13,7 @@ export const Route = createFileRoute("/cart")({
 });
 
 function CartPage() {
+  const add = useAddToCart();
   const cart = useCart();
   const update = useUpdateCartItem();
   const remove = useRemoveFromCart();

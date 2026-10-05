@@ -40,51 +40,20 @@ function ErrorComponent({
   error,
   reset,
 }: {
-  error: Error;
-  reset: () => void;
+  error: unknown
+  reset: () => void
 }) {
-  console.error(error);
-  const router = useRouter();
-
-  useEffect(() => {
-    reportLovableError(error, {
-      boundary: "tanstack_root_error_component",
-    });
-  }, [error]);
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This screen didn't load
-        </h1>
+    <div>
+      <h1>Something went wrong</h1>
 
-        <p className="mt-2 text-sm text-muted-foreground">
-          The cart terminal hit an error. Try again or go back to the home
-          screen.
-        </p>
+      <p>
+        {error instanceof Error ? error.message : String(error)}
+      </p>
 
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          <button
-            onClick={() => {
-              router.invalidate();
-              reset();
-            }}
-            className="inline-flex items-center justify-center rounded-xl bg-ink px-5 py-3 text-sm font-semibold text-card"
-          >
-            Try again
-          </button>
-
-          <a
-            href="/"
-            className="inline-flex items-center justify-center rounded-xl bg-card px-5 py-3 text-sm font-semibold ring-1 ring-border"
-          >
-            Cart home
-          </a>
-        </div>
-      </div>
+      <button onClick={reset}>Try again</button>
     </div>
-  );
+  )
 }
 
 export const Route = createRootRouteWithContext<{
